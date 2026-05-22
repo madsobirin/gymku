@@ -14,3 +14,15 @@ node_modules
 .next/
 .DS_Store
 /generated/prisma
+# Added by code-review-graph
+.code-review-graph/
+.mcp*
+.opencode*
+.windsurf*
+AGENT*
+CLAUDE*
+GEMINI*
+.codacy*
+.cursor*
+.kiro
+.claude
