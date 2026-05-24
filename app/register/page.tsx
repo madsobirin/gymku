@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import { useState, useTransition } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { Dumbbell, Mail, Lock, User, ArrowRight, Loader2 } from 'lucide-react';
-import { registerAction } from '@/lib/actions/auth';
+import { useState, useTransition } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Dumbbell, Mail, Lock, User, ArrowRight, Loader2 } from "lucide-react";
+import { registerAction } from "@/lib/actions/auth";
 
-import { toast } from 'sonner';
+import { toast } from "sonner";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -17,7 +17,7 @@ export default function RegisterPage() {
     e.preventDefault();
     setError(null);
     const formData = new FormData(e.currentTarget);
-    
+
     startTransition(async () => {
       const result = await registerAction(formData);
       if (result?.error) {
@@ -25,7 +25,7 @@ export default function RegisterPage() {
         toast.error(result.error);
       } else if (result?.success) {
         toast.success(result.message);
-        router.push('/login');
+        router.push("/login");
       }
     });
   };
@@ -41,7 +41,9 @@ export default function RegisterPage() {
           <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-4">
             <Dumbbell className="w-8 h-8 text-primary" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground">Create an Account</h1>
+          <h1 className="text-2xl font-bold text-foreground">
+            Create an Account
+          </h1>
           <p className="text-muted-foreground text-sm mt-2 text-center">
             Join Pure Flow to track your workouts and stay consistent.
           </p>
@@ -55,7 +57,9 @@ export default function RegisterPage() {
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground ml-1">Full Name</label>
+            <label className="text-sm font-medium text-foreground ml-1">
+              Full Name
+            </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <User className="h-5 w-5 text-muted-foreground" />
@@ -71,7 +75,9 @@ export default function RegisterPage() {
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground ml-1">Email</label>
+            <label className="text-sm font-medium text-foreground ml-1">
+              Email
+            </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Mail className="h-5 w-5 text-muted-foreground" />
@@ -87,7 +93,9 @@ export default function RegisterPage() {
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground ml-1">Password</label>
+            <label className="text-sm font-medium text-foreground ml-1">
+              Password
+            </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Lock className="h-5 w-5 text-muted-foreground" />
@@ -120,8 +128,11 @@ export default function RegisterPage() {
         </form>
 
         <div className="mt-8 text-center text-sm text-muted-foreground">
-          Already have an account?{' '}
-          <Link href="/login" className="text-primary font-semibold hover:underline">
+          Already have an account?{" "}
+          <Link
+            href="/login"
+            className="text-primary font-semibold hover:underline"
+          >
             Sign In
           </Link>
         </div>
