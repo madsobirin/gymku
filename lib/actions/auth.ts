@@ -19,7 +19,7 @@ export async function loginAction(formData: FormData) {
     await signIn("credentials", {
       email,
       password,
-      redirectTo: "/dashboard",
+      redirectTo: "/",
     });
   } catch (error) {
     if (error instanceof AuthError) {
@@ -61,19 +61,7 @@ export async function registerAction(formData: FormData) {
     data: { name, email, password: hashedPassword },
   });
 
-  // Auto-login setelah registrasi berhasil
-  try {
-    await signIn("credentials", {
-      email,
-      password,
-      redirectTo: "/dashboard",
-    });
-  } catch (error) {
-    if (error instanceof AuthError) {
-      return { error: "Akun berhasil dibuat, silakan login manual" };
-    }
-    throw error; // Re-throw redirect
-  }
+  return { success: true, message: "Akun berhasil dibuat, silakan login" };
 }
 
 // ─── Logout ───────────────────────────────────────────────────────────────────

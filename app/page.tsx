@@ -7,7 +7,9 @@ import { EquipmentModal } from '@/components/workout/equipment-modal';
 import { useWorkoutStorage } from '@/hooks/useWorkoutStorage';
 import { useEquipmentStorage } from '@/hooks/useEquipmentStorage';
 import { Button } from '@/components/ui/button';
-import { Plus, Calendar, Dumbbell, Moon, Sun, RotateCcw } from 'lucide-react';
+import { Plus, Calendar, Dumbbell, Moon, Sun, RotateCcw, LogOut } from 'lucide-react';
+import { logoutAction } from '@/lib/actions/auth';
+import { toast } from 'sonner';
 
 type Tab = 'today' | 'history' | 'equipment';
 
@@ -35,6 +37,15 @@ export default function Home() {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      await logoutAction();
+    } catch (e) {
+      toast.success("Berhasil logout!");
+      throw e;
+    }
+  };
+
   return (
     <main className="min-h-screen bg-background text-foreground">
       {/* Top Navigation */}
@@ -48,18 +59,28 @@ export default function Home() {
           {/* Spacer */}
           <div className="flex-1" />
 
-          {/* Theme Toggle */}
-          <button
-            onClick={() => setIsDarkMode(!isDarkMode)}
-            className="p-2 hover:bg-muted rounded-lg transition-colors"
-            aria-label="Toggle theme"
-          >
-            {isDarkMode ? (
-              <Sun className="w-5 h-5 text-muted-foreground" />
-            ) : (
-              <Moon className="w-5 h-5 text-muted-foreground" />
-            )}
-          </button>
+          {/* Theme Toggle & Logout */}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              className="p-2 hover:bg-muted rounded-lg transition-colors"
+              aria-label="Toggle theme"
+            >
+              {isDarkMode ? (
+                <Sun className="w-5 h-5 text-muted-foreground" />
+              ) : (
+                <Moon className="w-5 h-5 text-muted-foreground" />
+              )}
+            </button>
+            <button
+              onClick={handleLogout}
+              className="p-2 hover:bg-destructive/10 text-destructive rounded-lg transition-colors"
+              aria-label="Logout"
+              title="Logout"
+            >
+              <LogOut className="w-5 h-5" />
+            </button>
+          </div>
         </div>
       </header>
 
