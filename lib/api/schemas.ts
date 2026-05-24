@@ -46,6 +46,12 @@ export const workoutSetSchema = z.object({
   imageUrl: z.string().url("imageUrl harus berupa URL yang valid.").optional().nullable(),
 });
 
+export const updateWorkoutSetSchema = z.object({
+  weight: z.number().min(0).max(1000).optional(),
+  reps: z.number().int().positive().optional(),
+  imageUrl: z.string().url().optional().nullable(),
+});
+
 // ─── Workout Session ───────────────────────────────────────────────────────────
 
 /**
@@ -78,6 +84,7 @@ export const updateWorkoutSchema = z.object({
 });
 
 export type WorkoutSetInput = z.infer<typeof workoutSetSchema>;
+export type UpdateWorkoutSetInput = z.infer<typeof updateWorkoutSetSchema>;
 export type ExerciseInput = z.infer<typeof exerciseInputSchema>;
 export type CreateWorkoutInput = z.infer<typeof createWorkoutSchema>;
 export type UpdateWorkoutInput = z.infer<typeof updateWorkoutSchema>;

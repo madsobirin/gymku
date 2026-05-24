@@ -38,7 +38,12 @@ export function useEquipmentStorage() {
 
   // ─── Add equipment ─────────────────────────────────────────────────────────
   const addEquipment = useCallback(
-    async (data: { name: string; muscleGroup: string; imageUrl?: string | null; notes?: string | null }) => {
+    async (data: {
+      name: string;
+      muscleGroup: string;
+      imageUrl?: string | null;
+      notes?: string | null;
+    }) => {
       try {
         const res = await fetch("/api/equipment", {
           method: "POST",
@@ -64,7 +69,15 @@ export function useEquipmentStorage() {
 
   // ─── Update equipment ──────────────────────────────────────────────────────
   const updateEquipment = useCallback(
-    async (id: string, data: { name?: string; muscleGroup?: string; imageUrl?: string | null }) => {
+    async (
+      id: string,
+      data: {
+        name?: string;
+        muscleGroup?: string;
+        imageUrl?: string | null;
+        notes?: string | null;
+      },
+    ) => {
       try {
         const res = await fetch(`/api/equipment/${id}`, {
           method: "PATCH",
@@ -109,7 +122,8 @@ export function useEquipmentStorage() {
 
   // ─── Derived helpers ───────────────────────────────────────────────────────
   const getByMuscleGroup = useCallback(
-    (muscleGroup: string) => equipment.filter((e) => e.muscleGroup === muscleGroup),
+    (muscleGroup: string) =>
+      equipment.filter((e) => e.muscleGroup === muscleGroup),
     [equipment],
   );
 

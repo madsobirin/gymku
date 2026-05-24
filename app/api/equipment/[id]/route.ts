@@ -59,6 +59,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
         ...(validation.data.name !== undefined && { name: validation.data.name }),
         ...(validation.data.muscleGroup !== undefined && { muscleGroup: validation.data.muscleGroup }),
         ...(validation.data.imageUrl !== undefined && { imageUrl: validation.data.imageUrl }),
+        ...(validation.data.notes !== undefined && { notes: validation.data.notes }),
       },
     });
 

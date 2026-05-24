@@ -138,6 +138,57 @@ export function useWorkoutStorage() {
     [],
   );
 
+  // ─── Update a single workout set ───────────────────────────────────────────
+  const updateWorkoutSet = useCallback(
+    async (setId: string, data: { weight?: number; reps?: number; imageUrl?: string | null }) => {
+      try {
+        const res = await fetch(`/api/workouts/sets/${setId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+        const json = await res.json();
+        if (!res.ok) {
+          toast.error(json.error ?? "Gagal memperbarui set.");
+          return false;
+        }
+        // Instead of manually mapping the deeply nested state, we refresh all to ensure consistency
+        await fetchWorkouts();
+        toast.success(json.message ?? "Set berhasil diperbarui.");
+        return true;
+      } catch (err) {
+        console.error("[useWorkoutStorage] updateWorkoutSet error:", err);
+        toast.error("Terjadi kesalahan jaringan.");
+        return false;
+      }
+    },
+    [fetchWorkouts],
+  );
+
+  // ─── Delete a single workout set ───────────────────────────────────────────
+  const deleteWorkoutSet = useCallback(
+    async (setId: string) => {
+      try {
+        const res = await fetch(`/api/workouts/sets/${setId}`, {
+          method: "DELETE",
+        });
+        const json = await res.json();
+        if (!res.ok) {
+          toast.error(json.error ?? "Gagal menghapus set.");
+          return false;
+        }
+        await fetchWorkouts();
+        toast.success(json.message ?? "Set berhasil dihapus.");
+        return true;
+      } catch (err) {
+        console.error("[useWorkoutStorage] deleteWorkoutSet error:", err);
+        toast.error("Terjadi kesalahan jaringan.");
+        return false;
+      }
+    },
+    [fetchWorkouts],
+  );
+
   // ─── Get workouts for a specific date (YYYY-MM-DD) ────────────────────────
   const getWorkoutsByDate = useCallback(
     (date: string) => {
@@ -154,6 +205,8 @@ export function useWorkoutStorage() {
     addWorkout,
     updateWorkout,
     deleteWorkout,
+    updateWorkoutSet,
+    deleteWorkoutSet,
     getWorkoutsByDate,
     refresh: fetchWorkouts,
   };

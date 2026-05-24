@@ -19,8 +19,9 @@ import {
   ImageIcon,
   CheckCircle2,
   AlertCircle,
+  Edit2,
 } from "lucide-react";
-import { useEquipmentStorage } from "@/hooks/useEquipmentStorage";
+import { useEquipmentStorage, ApiEquipment } from "@/hooks/useEquipmentStorage";
 import { MuscleGroup } from "@/types/workout";
 import { toast } from "sonner";
 
@@ -43,8 +44,12 @@ interface EquipmentModalProps {
 type UploadState = "idle" | "uploading" | "done" | "error";
 
 export function EquipmentModal({ open, onOpenChange }: EquipmentModalProps) {
-  const { equipment, addEquipment, deleteEquipment } = useEquipmentStorage();
+  const { equipment, addEquipment, updateEquipment, deleteEquipment } =
+    useEquipmentStorage();
   const [tab, setTab] = useState<"create" | "manage">("create");
+
+  // Form state
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   // Form state
   const [name, setName] = useState("");
@@ -57,7 +62,8 @@ export function EquipmentModal({ open, onOpenChange }: EquipmentModalProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const canSubmit = name.trim().length > 0 && !isSubmitting && uploadState !== "uploading";
+  const canSubmit =
+    name.trim().length > 0 && !isSubmitting && uploadState !== "uploading";
 
   // ─── Upload image to Cloudinary via our API route ────────────────────────────
   const handleFileChange = useCallback(
@@ -110,53 +116,85 @@ export function EquipmentModal({ open, onOpenChange }: EquipmentModalProps) {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  const handleResetForm = () => {
+    setName("");
+    setMuscleGroup("Chest");
+    setNotes("");
+    setImageUrl(null);
+    setImagePreview(null);
+    setUploadState("idle");
+    setEditingId(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleEditClick = (eq: ApiEquipment) => {
+    setEditingId(eq.id);
+    setName(eq.name);
+    setMuscleGroup(eq.muscleGroup as MuscleGroup);
+    setNotes(eq.notes || "");
+    setImageUrl(eq.imageUrl);
+    setImagePreview(eq.imageUrl);
+    setUploadState(eq.imageUrl ? "done" : "idle");
+    setTab("create");
+  };
+
   // ─── Submit ──────────────────────────────────────────────────────────────────
-  const handleAddEquipment = async () => {
+  const handleSubmit = useCallback(async () => {
     if (!name.trim()) return;
     setIsSubmitting(true);
 
-    const result = await addEquipment({
-      name: name.trim(),
-      muscleGroup,
-      imageUrl: imageUrl ?? null,
-      notes: notes.trim() || null,
-    });
-
-    if (result) {
-      setName("");
-      setMuscleGroup("Chest");
-      setNotes("");
-      setImageUrl(null);
-      setImagePreview(null);
-      setUploadState("idle");
+    try {
+      if (editingId) {
+        const updated = await updateEquipment(editingId, {
+          name,
+          muscleGroup,
+          imageUrl,
+          notes,
+        });
+        if (updated) {
+          handleResetForm();
+          setTab("manage");
+        }
+      } else {
+        const created = await addEquipment({
+          name,
+          muscleGroup,
+          imageUrl,
+          notes,
+        });
+        if (created) {
+          handleResetForm();
+        }
+      }
+    } catch (err) {
+      console.error("Submit error:", err);
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setIsSubmitting(false);
-  };
+  }, [
+    name,
+    muscleGroup,
+    imageUrl,
+    notes,
+    addEquipment,
+    updateEquipment,
+    editingId,
+  ]);
 
   // ─── Delete ──────────────────────────────────────────────────────────────────
-  const handleDeleteEquipment = async (id: string) => {
+  const handleDelete = async (id: string) => {
     setDeletingId(id);
     await deleteEquipment(id);
     setDeletingId(null);
-  };
-
-  // ─── Upload status indicator ─────────────────────────────────────────────────
-  const UploadStatusIcon = () => {
-    if (uploadState === "uploading")
-      return <Loader2 className="w-4 h-4 animate-spin text-primary" />;
-    if (uploadState === "done")
-      return <CheckCircle2 className="w-4 h-4 text-green-500" />;
-    if (uploadState === "error")
-      return <AlertCircle className="w-4 h-4 text-destructive" />;
-    return null;
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-card border-border">
         <DialogHeader>
-          <DialogTitle className="text-foreground">Equipment Manager</DialogTitle>
+          <DialogTitle className="text-foreground">
+            Equipment Manager
+          </DialogTitle>
           <DialogDescription className="text-muted-foreground">
             Tambah alat gym baru atau kelola yang sudah ada
           </DialogDescription>
@@ -165,14 +203,17 @@ export function EquipmentModal({ open, onOpenChange }: EquipmentModalProps) {
         {/* Tabs */}
         <div className="flex gap-2 border-b border-border mb-4">
           <button
-            onClick={() => setTab("create")}
+            onClick={() => {
+              setTab("create");
+              handleResetForm();
+            }}
             className={`px-4 py-2 border-b-2 transition-colors text-sm font-medium ${
               tab === "create"
                 ? "border-primary text-foreground"
                 : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
           >
-            Tambah Alat
+            {editingId ? "Edit Alat" : "Tambah Alat"}
           </button>
           <button
             onClick={() => setTab("manage")}
@@ -199,7 +240,7 @@ export function EquipmentModal({ open, onOpenChange }: EquipmentModalProps) {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 onKeyDown={(e) =>
-                  e.key === "Enter" && canSubmit && handleAddEquipment()
+                  e.key === "Enter" && canSubmit && handleSubmit()
                 }
                 className="bg-muted border-border"
               />
@@ -226,7 +267,10 @@ export function EquipmentModal({ open, onOpenChange }: EquipmentModalProps) {
             {/* Notes */}
             <div className="space-y-2">
               <label className="block text-sm font-medium text-foreground">
-                Catatan <span className="text-muted-foreground text-xs">(opsional)</span>
+                Catatan{" "}
+                <span className="text-muted-foreground text-xs">
+                  (opsional)
+                </span>
               </label>
               <textarea
                 placeholder="cth: Barbell 20kg, ukuran grip medium, ada di rak sebelah kiri..."
@@ -245,7 +289,9 @@ export function EquipmentModal({ open, onOpenChange }: EquipmentModalProps) {
             <div className="space-y-2">
               <label className="block text-sm font-medium text-foreground">
                 Foto Alat{" "}
-                <span className="text-muted-foreground text-xs">(opsional, max 5MB)</span>
+                <span className="text-muted-foreground text-xs">
+                  (opsional, max 5MB)
+                </span>
               </label>
 
               <input
@@ -298,8 +344,12 @@ export function EquipmentModal({ open, onOpenChange }: EquipmentModalProps) {
                     <Upload className="w-6 h-6" />
                   </div>
                   <div className="text-center">
-                    <p className="text-sm font-medium">Klik untuk upload foto</p>
-                    <p className="text-xs mt-1">JPG, PNG, WEBP, GIF · Max 5MB</p>
+                    <p className="text-sm font-medium">
+                      Klik untuk upload foto
+                    </p>
+                    <p className="text-xs mt-1">
+                      JPG, PNG, WEBP, GIF · Max 5MB
+                    </p>
                   </div>
                 </button>
               )}
@@ -314,7 +364,7 @@ export function EquipmentModal({ open, onOpenChange }: EquipmentModalProps) {
 
             {/* Submit */}
             <Button
-              onClick={handleAddEquipment}
+              onClick={handleSubmit}
               disabled={!canSubmit}
               className="w-full bg-primary text-primary-foreground hover:bg-primary/90 h-11"
             >
@@ -323,10 +373,23 @@ export function EquipmentModal({ open, onOpenChange }: EquipmentModalProps) {
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Menyimpan...
                 </>
+              ) : editingId ? (
+                "Simpan Perubahan"
               ) : (
-                "Tambah Equipment"
+                "Tambah Alat"
               )}
             </Button>
+
+            {editingId && (
+              <Button
+                variant="outline"
+                onClick={handleResetForm}
+                className="w-full mt-2"
+                disabled={isSubmitting}
+              >
+                Batal Edit
+              </Button>
+            )}
           </div>
         )}
 
@@ -341,17 +404,17 @@ export function EquipmentModal({ open, onOpenChange }: EquipmentModalProps) {
                 </p>
               </div>
             ) : (
-              equipment.map((eq) => (
+              equipment.map((item) => (
                 <Card
-                  key={eq.id}
+                  key={item.id}
                   className="p-3 bg-muted border-border overflow-hidden"
                 >
                   <div className="flex gap-3">
                     {/* Thumbnail */}
-                    {eq.imageUrl ? (
+                    {item.imageUrl ? (
                       <img
-                        src={eq.imageUrl}
-                        alt={eq.name}
+                        src={item.imageUrl}
+                        alt={item.name}
                         className="w-16 h-16 object-cover rounded-lg flex-shrink-0"
                       />
                     ) : (
@@ -365,28 +428,41 @@ export function EquipmentModal({ open, onOpenChange }: EquipmentModalProps) {
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <h4 className="font-semibold text-foreground text-sm truncate">
-                            {eq.name}
+                            {item.name}
                           </h4>
                           <span className="inline-block text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full mt-0.5">
-                            {eq.muscleGroup}
+                            {item.muscleGroup}
                           </span>
-                          {eq.notes && (
+                          {item.notes && (
                             <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                              {eq.notes}
+                              {item.notes}
                             </p>
                           )}
                         </div>
-                        <button
-                          onClick={() => handleDeleteEquipment(eq.id)}
-                          disabled={deletingId === eq.id}
-                          className="p-2 hover:bg-destructive/10 rounded-lg transition-colors disabled:opacity-50 flex-shrink-0"
-                        >
-                          {deletingId === eq.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin text-destructive" />
-                          ) : (
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          )}
-                        </button>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEditClick(item)}
+                            disabled={deletingId === item.id}
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(item.id)}
+                            disabled={deletingId === item.id}
+                            className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                          >
+                            {deletingId === item.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-4 h-4" />
+                            )}
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </div>

@@ -16,10 +16,16 @@ import {
   CheckCircle2,
   AlertCircle,
   ImageIcon,
+  Edit2,
+  Save,
+  Trash2,
+  CalendarIcon,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { useEquipmentStorage, ApiEquipment } from "@/hooks/useEquipmentStorage";
 import { useSessionManager } from "@/hooks/useSessionManager";
-import { useWorkoutStorage } from "@/hooks/useWorkoutStorage";
+import { useWorkoutStorage, ApiWorkoutSet } from "@/hooks/useWorkoutStorage";
 import { Exercise } from "@/types/workout";
 
 interface DashboardProps {
@@ -37,7 +43,7 @@ export function Dashboard({ onEquipmentModalOpen }: DashboardProps) {
     removeExercise,
     endSession,
   } = useSessionManager();
-  const { addWorkout, getWorkoutsByDate } = useWorkoutStorage();
+  const { addWorkout, getWorkoutsByDate, updateWorkoutSet, deleteWorkoutSet } = useWorkoutStorage();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedEquipment, setSelectedEquipment] =
@@ -61,7 +67,14 @@ export function Dashboard({ onEquipmentModalOpen }: DashboardProps) {
   const [sessionNotes, setSessionNotes] = useState("");
 
   const today = new Date().toISOString().split("T")[0];
-  const todaysWorkouts = getWorkoutsByDate(today);
+  const [selectedDate, setSelectedDate] = useState<string>(today);
+  const todaysWorkouts = getWorkoutsByDate(selectedDate);
+
+  // Edit Set State
+  const [editingSetId, setEditingSetId] = useState<string | null>(null);
+  const [editWeight, setEditWeight] = useState<number>(0);
+  const [editReps, setEditReps] = useState<number>(0);
+  const [isUpdatingSet, setIsUpdatingSet] = useState(false);
 
   const filteredEquipment = useMemo(() => {
     if (!searchQuery) return equipment;
@@ -583,7 +596,7 @@ export function Dashboard({ onEquipmentModalOpen }: DashboardProps) {
         </>
       )}
 
-      {/* Empty State */}
+      {/* Empty State for current session */}
       {!currentSession && (
         <Card className="p-8 text-center space-y-3 bg-card border-border">
           <p className="text-muted-foreground">
@@ -591,6 +604,178 @@ export function Dashboard({ onEquipmentModalOpen }: DashboardProps) {
           </p>
         </Card>
       )}
+
+      {/* Daily Log Section */}
+      <div className="mt-8 space-y-4">
+        <div className="flex items-center justify-between bg-card p-3 rounded-lg border border-border shadow-sm">
+          <button
+            onClick={() => {
+              const d = new Date(selectedDate);
+              d.setDate(d.getDate() - 1);
+              setSelectedDate(d.toISOString().split("T")[0]);
+            }}
+            className="p-2 hover:bg-muted rounded-md transition-colors"
+          >
+            <ChevronLeft className="w-5 h-5 text-foreground" />
+          </button>
+          
+          <div className="flex items-center gap-2">
+            <CalendarIcon className="w-4 h-4 text-primary" />
+            <span className="font-medium text-foreground">
+              {new Date(selectedDate).toLocaleDateString("id-ID", {
+                weekday: "long",
+                day: "numeric",
+                month: "short",
+                year: "numeric"
+              })}
+            </span>
+          </div>
+
+          <button
+            onClick={() => {
+              const d = new Date(selectedDate);
+              d.setDate(d.getDate() + 1);
+              setSelectedDate(d.toISOString().split("T")[0]);
+            }}
+            className="p-2 hover:bg-muted rounded-md transition-colors"
+          >
+            <ChevronRight className="w-5 h-5 text-foreground" />
+          </button>
+        </div>
+
+        {todaysWorkouts.length === 0 ? (
+          <Card className="p-6 text-center text-muted-foreground bg-card border-border">
+            Belum ada log latihan untuk tanggal ini.
+          </Card>
+        ) : (
+          <div className="space-y-4">
+            {todaysWorkouts.map((workout) => (
+              <Card key={workout.id} className="p-4 bg-card border-border space-y-4">
+                {workout.notes && (
+                  <div className="text-sm p-3 bg-muted/30 rounded-md border border-border">
+                    <p className="font-medium text-foreground mb-1">Catatan Sesi:</p>
+                    <p className="text-muted-foreground">{workout.notes}</p>
+                  </div>
+                )}
+                <div className="space-y-4">
+                  {/* Group sets by equipment manually to display them nicely */}
+                  {Array.from(new Set(workout.workoutSets.map(s => s.equipment.id))).map(equipmentId => {
+                    const equipmentName = workout.workoutSets.find(s => s.equipment.id === equipmentId)?.equipment.name;
+                    const equipmentSets = workout.workoutSets.filter(s => s.equipment.id === equipmentId);
+                    
+                    return (
+                      <div key={equipmentId} className="space-y-2">
+                        <h4 className="font-semibold text-foreground border-b border-border pb-1">
+                          {equipmentName}
+                        </h4>
+                        <div className="space-y-2">
+                          {equipmentSets.map((set) => {
+                            const isEditing = editingSetId === set.id;
+                            return (
+                              <div key={set.id} className="flex flex-col gap-2 p-3 bg-muted/40 rounded-lg text-sm border border-border/50">
+                                {isEditing ? (
+                                  <div className="flex flex-col gap-3">
+                                    <div className="flex gap-2 items-center">
+                                      <div className="flex-1 space-y-1">
+                                        <label className="text-xs text-muted-foreground">Beban (kg)</label>
+                                        <Input
+                                          type="number"
+                                          value={editWeight}
+                                          onChange={(e) => setEditWeight(Math.max(0, parseFloat(e.target.value) || 0))}
+                                          className="h-8 text-sm"
+                                        />
+                                      </div>
+                                      <div className="flex-1 space-y-1">
+                                        <label className="text-xs text-muted-foreground">Reps</label>
+                                        <Input
+                                          type="number"
+                                          value={editReps}
+                                          onChange={(e) => setEditReps(Math.max(1, parseInt(e.target.value) || 1))}
+                                          className="h-8 text-sm"
+                                        />
+                                      </div>
+                                    </div>
+                                    <div className="flex justify-end gap-2">
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => setEditingSetId(null)}
+                                        disabled={isUpdatingSet}
+                                      >
+                                        Batal
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        onClick={async () => {
+                                          setIsUpdatingSet(true);
+                                          const ok = await updateWorkoutSet(set.id, { weight: editWeight, reps: editReps });
+                                          if (ok) setEditingSetId(null);
+                                          setIsUpdatingSet(false);
+                                        }}
+                                        disabled={isUpdatingSet}
+                                      >
+                                        {isUpdatingSet ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}
+                                        Simpan
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-foreground">
+                                        Set {set.setNumber}:{" "}
+                                        <span className="font-semibold">
+                                          {set.weight}kg × {set.reps}
+                                        </span>
+                                      </span>
+                                      <div className="flex items-center gap-1">
+                                        {set.imageUrl && (
+                                          <ImageIcon className="w-4 h-4 text-primary mr-1" />
+                                        )}
+                                        <button
+                                          onClick={() => {
+                                            setEditWeight(set.weight);
+                                            setEditReps(set.reps);
+                                            setEditingSetId(set.id);
+                                          }}
+                                          className="p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground rounded transition-colors"
+                                        >
+                                          <Edit2 className="w-3.5 h-3.5" />
+                                        </button>
+                                        <button
+                                          onClick={async () => {
+                                            if (confirm("Hapus set ini?")) {
+                                              await deleteWorkoutSet(set.id);
+                                            }
+                                          }}
+                                          className="p-1.5 hover:bg-destructive/10 text-muted-foreground hover:text-destructive rounded transition-colors"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                    {set.imageUrl && (
+                                      <img
+                                        src={set.imageUrl}
+                                        alt={`Set ${set.setNumber}`}
+                                        className="w-full h-24 object-cover rounded-md border border-border"
+                                      />
+                                    )}
+                                  </>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

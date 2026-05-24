@@ -33,4 +33,12 @@ export interface CurrentSession {
   startedAt: number;
 }
 
-export type MuscleGroup = 'Chest' | 'Back' | 'Legs' | 'Shoulders' | 'Arms' | 'Cardio' | 'Core' | 'Full Body';
+export type MuscleGroup =
+  | "Chest"
+  | "Back"
+  | "Legs"
+  | "Shoulders"
+  | "Arms"
+  | "Cardio"
+  | "Core"
+  | "Full Body";
