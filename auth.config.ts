@@ -22,7 +22,8 @@ export const authConfig = {
 
       // Protected routes
       const protectedPaths = ["/dashboard"];
-      const isProtected = protectedPaths.some((path) =>
+      // Include exactly the root path as well
+      const isProtected = nextUrl.pathname === "/" || protectedPaths.some((path) =>
         nextUrl.pathname.startsWith(path),
       );
 
@@ -37,7 +38,7 @@ export const authConfig = {
       );
 
       if (isAuthPage && isLoggedIn) {
-        return Response.redirect(new URL("/dashboard", nextUrl));
+        return Response.redirect(new URL("/", nextUrl));
       }
 
       return true;
