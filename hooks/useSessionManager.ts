@@ -45,13 +45,14 @@ export function useSessionManager() {
     });
   }, []);
 
-  const addSet = useCallback((exerciseIndex: number, weight: number, reps: number, notes?: string) => {
+  const addSet = useCallback((exerciseIndex: number, weight: number, reps: number, imageUrl?: string, notes?: string) => {
     setCurrentSession((prev) => {
       if (!prev) return null;
       const updated = [...prev.exercises];
       updated[exerciseIndex].sets.push({
         weight,
         reps,
+        imageUrl,
         notes,
       });
       return {
@@ -62,13 +63,14 @@ export function useSessionManager() {
   }, []);
 
   const updateSet = useCallback(
-    (exerciseIndex: number, setIndex: number, weight: number, reps: number, notes?: string) => {
+    (exerciseIndex: number, setIndex: number, weight: number, reps: number, imageUrl?: string, notes?: string) => {
       setCurrentSession((prev) => {
         if (!prev) return null;
         const updated = [...prev.exercises];
         updated[exerciseIndex].sets[setIndex] = {
           weight,
           reps,
+          imageUrl,
           notes,
         };
         return {

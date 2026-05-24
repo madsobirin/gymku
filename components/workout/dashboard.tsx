@@ -1,10 +1,22 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Search, Plus, X, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import {
+  Search,
+  Plus,
+  X,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
+  Upload,
+  CheckCircle2,
+  AlertCircle,
+  ImageIcon,
+} from "lucide-react";
 import { useEquipmentStorage, ApiEquipment } from "@/hooks/useEquipmentStorage";
 import { useSessionManager } from "@/hooks/useSessionManager";
 import { useWorkoutStorage } from "@/hooks/useWorkoutStorage";
@@ -28,11 +40,23 @@ export function Dashboard({ onEquipmentModalOpen }: DashboardProps) {
   const { addWorkout, getWorkoutsByDate } = useWorkoutStorage();
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedEquipment, setSelectedEquipment] = useState<ApiEquipment | null>(null);
+  const [selectedEquipment, setSelectedEquipment] =
+    useState<ApiEquipment | null>(null);
   const [weight, setWeight] = useState(20);
   const [reps, setReps] = useState(10);
+
+  // Image upload state for the current set
+  const [setImageUrl, setSetImageUrl] = useState<string | null>(null);
+  const [setImagePreview, setSetImagePreview] = useState<string | null>(null);
+  const [uploadState, setUploadState] = useState<
+    "idle" | "uploading" | "done" | "error"
+  >("idle");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [showSearch, setShowSearch] = useState(false);
-  const [expandedExercises, setExpandedExercises] = useState<Set<number>>(new Set());
+  const [expandedExercises, setExpandedExercises] = useState<Set<number>>(
+    new Set(),
+  );
   const [isSaving, setIsSaving] = useState(false);
   const [sessionNotes, setSessionNotes] = useState("");
 
@@ -54,19 +78,65 @@ export function Dashboard({ onEquipmentModalOpen }: DashboardProps) {
     setShowSearch(false);
   };
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const objectUrl = URL.createObjectURL(file);
+    setSetImagePreview(objectUrl);
+    setSetImageUrl(null);
+    setUploadState("uploading");
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const json = await res.json();
+
+      if (!res.ok) {
+        toast.error(json.error ?? "Gagal mengupload gambar.");
+        setUploadState("error");
+        setSetImagePreview(null);
+        return;
+      }
+
+      setSetImageUrl(json.data.url);
+      setUploadState("done");
+    } catch (err) {
+      console.error("Upload error:", err);
+      toast.error("Gagal menghubungi server upload.");
+      setUploadState("error");
+      setSetImagePreview(null);
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setSetImageUrl(null);
+    setSetImagePreview(null);
+    setUploadState("idle");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   const handleAddSet = () => {
     if (!selectedEquipment || !currentSession) return;
+    if (uploadState === "uploading") return;
 
     const existingExercise = currentSession.exercises.findIndex(
       (e) => e.equipmentId === selectedEquipment.id,
     );
 
     if (existingExercise !== -1) {
-      addSet(existingExercise, weight, reps);
+      addSet(existingExercise, weight, reps, setImageUrl ?? undefined);
     } else {
       const newExercise: Exercise = {
         equipmentId: selectedEquipment.id,
-        sets: [{ weight, reps }],
+        sets: [{ weight, reps, imageUrl: setImageUrl ?? undefined }],
       };
       addExercise(newExercise);
     }
@@ -74,6 +144,9 @@ export function Dashboard({ onEquipmentModalOpen }: DashboardProps) {
     // Reset inputs
     setWeight(20);
     setReps(10);
+    setSetImageUrl(null);
+    setSetImagePreview(null);
+    setUploadState("idle");
   };
 
   const handleCompleteWorkout = async () => {
@@ -94,6 +167,7 @@ export function Dashboard({ onEquipmentModalOpen }: DashboardProps) {
         setNumber: index + 1,
         weight: set.weight,
         reps: set.reps,
+        imageUrl: set.imageUrl ?? null,
       })),
     }));
 
@@ -160,7 +234,9 @@ export function Dashboard({ onEquipmentModalOpen }: DashboardProps) {
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">
               Catatan Sesi{" "}
-              <span className="text-muted-foreground font-normal">(opsional)</span>
+              <span className="text-muted-foreground font-normal">
+                (opsional)
+              </span>
             </label>
             <textarea
               placeholder="cth: Latihan terasa berat, fokus chest day, PR hari ini..."
@@ -324,6 +400,72 @@ export function Dashboard({ onEquipmentModalOpen }: DashboardProps) {
                 </div>
               </div>
 
+              {/* Photo Input for Set */}
+              <div className="space-y-2 pt-2">
+                <label className="block text-sm font-medium text-foreground flex items-center gap-2">
+                  Foto Set{" "}
+                  <span className="text-muted-foreground text-xs font-normal">
+                    (opsional)
+                  </span>
+                </label>
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+
+                {setImagePreview ? (
+                  <div className="relative rounded-xl overflow-hidden border border-border mt-2 h-32">
+                    <img
+                      src={setImagePreview}
+                      alt="Set preview"
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute top-2 right-2 flex gap-2">
+                      {uploadState === "uploading" && (
+                        <div className="bg-black/60 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          Mengupload...
+                        </div>
+                      )}
+                      {uploadState === "done" && (
+                        <div className="bg-green-500/80 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" />
+                          Siap
+                        </div>
+                      )}
+                      {uploadState !== "uploading" && (
+                        <button
+                          onClick={handleRemoveImage}
+                          className="bg-black/60 hover:bg-black/80 text-white rounded-full p-1.5 transition-colors"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full border-2 border-dashed border-border hover:border-primary rounded-xl p-4 flex flex-col items-center gap-2 text-muted-foreground hover:text-foreground transition-all group"
+                  >
+                    <Upload className="w-5 h-5 group-hover:text-primary transition-colors" />
+                    <span className="text-xs font-medium">Upload Foto</span>
+                  </button>
+                )}
+
+                {uploadState === "error" && (
+                  <p className="text-xs text-destructive flex items-center gap-1 mt-1">
+                    <AlertCircle className="w-3 h-3" />
+                    Upload gagal.
+                  </p>
+                )}
+              </div>
+
               {/* Previous Session Display */}
               {getPreviousSession(selectedEquipment.id) && (
                 <div className="p-2 bg-muted/40 rounded border border-border text-sm">
@@ -340,9 +482,14 @@ export function Dashboard({ onEquipmentModalOpen }: DashboardProps) {
               {/* Add Set Button */}
               <Button
                 onClick={handleAddSet}
+                disabled={uploadState === "uploading"}
                 className="w-full bg-accent text-accent-foreground hover:bg-accent/90"
               >
-                <Plus className="w-4 h-4 mr-2" />
+                {uploadState === "uploading" ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Plus className="w-4 h-4 mr-2" />
+                )}
                 Add Set
               </Button>
             </Card>
@@ -381,17 +528,36 @@ export function Dashboard({ onEquipmentModalOpen }: DashboardProps) {
                       {exercise.sets.map((set, setIndex) => (
                         <div
                           key={setIndex}
-                          className="flex items-center justify-between p-2 bg-muted/40 rounded text-sm"
+                          className="flex flex-col gap-2 p-2 bg-muted/40 rounded text-sm"
                         >
-                          <span className="text-foreground">
-                            Set {setIndex + 1}: {set.weight}kg × {set.reps}
-                          </span>
-                          <button
-                            onClick={() => removeSet(exerciseIndex, setIndex)}
-                            className="p-1 hover:bg-muted rounded transition-colors"
-                          >
-                            <X className="w-3 h-3 text-muted-foreground" />
-                          </button>
+                          <div className="flex items-center justify-between">
+                            <span className="text-foreground">
+                              Set {setIndex + 1}:{" "}
+                              <span className="font-semibold">
+                                {set.weight}kg × {set.reps}
+                              </span>
+                            </span>
+                            <div className="flex items-center gap-2">
+                              {set.imageUrl && (
+                                <ImageIcon className="w-4 h-4 text-primary" />
+                              )}
+                              <button
+                                onClick={() =>
+                                  removeSet(exerciseIndex, setIndex)
+                                }
+                                className="p-1 hover:bg-muted rounded transition-colors"
+                              >
+                                <X className="w-3 h-3 text-muted-foreground" />
+                              </button>
+                            </div>
+                          </div>
+                          {set.imageUrl && (
+                            <img
+                              src={set.imageUrl}
+                              alt={`Set ${setIndex + 1}`}
+                              className="w-full h-24 object-cover rounded-md border border-border"
+                            />
+                          )}
                         </div>
                       ))}
                     </div>

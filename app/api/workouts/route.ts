@@ -97,6 +97,7 @@ export async function POST(req: NextRequest) {
           setNumber: set.setNumber,
           weight: set.weight,
           reps: set.reps,
+          imageUrl: set.imageUrl ?? null,
         })),
       );
 

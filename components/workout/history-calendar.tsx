@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { Card } from "@/components/ui/card";
-import { ChevronLeft, ChevronRight, Calendar, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, Loader2, ImageIcon } from "lucide-react";
 import { useWorkoutStorage, ApiWorkoutSession } from "@/hooks/useWorkoutStorage";
 import { useEquipmentStorage } from "@/hooks/useEquipmentStorage";
 
@@ -194,20 +194,23 @@ export function HistoryCalendar() {
 
                 <div className="space-y-2">
                   {exerciseGroups.map(({ equipmentId, sets }) => (
-                    <div key={equipmentId} className="space-y-1">
+                    <div key={equipmentId} className="space-y-2">
                       <h4 className="font-semibold text-foreground text-sm">
                         {getEquipmentName(equipmentId)}
                       </h4>
-                      <div className="grid grid-cols-2 gap-1">
+                      <div className="flex flex-col gap-2">
                         {sets.map((set) => (
                           <div
                             key={set.id}
-                            className="text-xs bg-muted/40 rounded p-2 text-muted-foreground"
+                            className="text-xs bg-muted/40 rounded p-2 text-muted-foreground flex flex-col gap-2"
                           >
-                            Set {set.setNumber}:{" "}
-                            <span className="text-foreground font-medium">
-                              {set.weight}kg × {set.reps}
-                            </span>
+                            <div className="flex justify-between items-center">
+                              <span>Set {set.setNumber}: <span className="text-foreground font-medium">{set.weight}kg × {set.reps}</span></span>
+                              {set.imageUrl && <ImageIcon className="w-3 h-3 text-primary" />}
+                            </div>
+                            {set.imageUrl && (
+                              <img src={set.imageUrl} alt={`Set ${set.setNumber} photo`} className="w-full h-24 object-cover rounded-md border border-border" />
+                            )}
                           </div>
                         ))}
                       </div>

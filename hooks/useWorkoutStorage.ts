@@ -10,6 +10,7 @@ export interface ApiWorkoutSet {
   setNumber: number;
   weight: number;
   reps: number;
+  imageUrl: string | null;
   equipmentId: string;
   sessionId: string;
   createdAt: string;
@@ -36,7 +37,7 @@ export interface SaveWorkoutInput {
   notes?: string | null;
   exercises: {
     equipmentId: string;
-    sets: { setNumber: number; weight: number; reps: number }[];
+    sets: { setNumber: number; weight: number; reps: number; imageUrl?: string | null }[];
   }[];
 }
 

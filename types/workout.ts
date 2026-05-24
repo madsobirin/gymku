@@ -9,6 +9,7 @@ export interface Equipment {
 export interface ExerciseSet {
   weight: number; // in kg
   reps: number;
+  imageUrl?: string;
   notes?: string;
 }
 

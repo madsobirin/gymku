@@ -43,6 +43,7 @@ export const workoutSetSchema = z.object({
     .number({ required_error: "reps wajib diisi." })
     .int()
     .positive("Reps minimal 1."),
+  imageUrl: z.string().url("imageUrl harus berupa URL yang valid.").optional().nullable(),
 });
 
 // ─── Workout Session ───────────────────────────────────────────────────────────
