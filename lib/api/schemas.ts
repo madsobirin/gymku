@@ -23,6 +23,7 @@ export const createEquipmentSchema = z.object({
     errorMap: () => ({ message: `Muscle group harus salah satu dari: ${MUSCLE_GROUPS.join(", ")}.` }),
   }),
   imageUrl: z.string().url("imageUrl harus berupa URL yang valid.").optional().nullable(),
+  notes: z.string().max(500, "Catatan maksimal 500 karakter.").optional().nullable(),
 });
 
 export const updateEquipmentSchema = createEquipmentSchema.partial();

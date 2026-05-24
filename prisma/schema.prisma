@@ -30,6 +30,7 @@ model Equipment {
   name        String
   muscleGroup String       @map("muscle_group")
   imageUrl    String?      @map("image_url")
+  notes       String?      // Catatan tambahan tentang alat
   createdAt   DateTime     @default(now())
   
 
@@ -59,6 +60,7 @@ model WorkoutSet {
   setNumber   Int            @map("set_number")
   weight      Float         
   reps        Int
+  imageUrl    String?      @map("image_url")
   createdAt   DateTime       @default(now())
   
   sessionId   String         @map("session_id")

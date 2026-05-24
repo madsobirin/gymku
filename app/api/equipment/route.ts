@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     const validation = await validateBody(req, createEquipmentSchema);
     if (!validation.success) return validation.response;
 
-    const { name, muscleGroup, imageUrl } = validation.data;
+    const { name, muscleGroup, imageUrl, notes } = validation.data;
 
     // Prevent duplicate name under same user
     const existing = await prisma.equipment.findFirst({
@@ -58,7 +58,13 @@ export async function POST(req: NextRequest) {
     }
 
     const equipment = await prisma.equipment.create({
-      data: { name, muscleGroup, imageUrl: imageUrl ?? null, userId },
+      data: {
+        name,
+        muscleGroup,
+        imageUrl: imageUrl ?? null,
+        notes: notes ?? null,
+        userId,
+      },
     });
 
     return apiCreated(equipment, `Equipment "${name}" berhasil ditambahkan.`);

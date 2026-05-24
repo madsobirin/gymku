@@ -34,6 +34,7 @@ export function Dashboard({ onEquipmentModalOpen }: DashboardProps) {
   const [showSearch, setShowSearch] = useState(false);
   const [expandedExercises, setExpandedExercises] = useState<Set<number>>(new Set());
   const [isSaving, setIsSaving] = useState(false);
+  const [sessionNotes, setSessionNotes] = useState("");
 
   const today = new Date().toISOString().split("T")[0];
   const todaysWorkouts = getWorkoutsByDate(today);
@@ -98,9 +99,11 @@ export function Dashboard({ onEquipmentModalOpen }: DashboardProps) {
 
     await addWorkout({
       date: today,
+      notes: sessionNotes.trim() || null,
       exercises: exercisesPayload,
     });
 
+    setSessionNotes("");
     setIsSaving(false);
   };
 
@@ -152,21 +155,39 @@ export function Dashboard({ onEquipmentModalOpen }: DashboardProps) {
           Start Today&apos;s Workout
         </Button>
       ) : (
-        <Button
-          onClick={handleCompleteWorkout}
-          disabled={!currentSession.exercises.length || isSaving}
-          size="lg"
-          className="w-full bg-primary text-primary-foreground hover:bg-primary/90 text-lg h-12"
-        >
-          {isSaving ? (
-            <>
-              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-              Menyimpan...
-            </>
-          ) : (
-            "Complete Workout"
-          )}
-        </Button>
+        <div className="space-y-3">
+          {/* Session Notes */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">
+              Catatan Sesi{" "}
+              <span className="text-muted-foreground font-normal">(opsional)</span>
+            </label>
+            <textarea
+              placeholder="cth: Latihan terasa berat, fokus chest day, PR hari ini..."
+              value={sessionNotes}
+              onChange={(e) => setSessionNotes(e.target.value)}
+              rows={2}
+              maxLength={1000}
+              className="w-full px-3 py-2 bg-card border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow resize-none text-sm"
+            />
+          </div>
+
+          <Button
+            onClick={handleCompleteWorkout}
+            disabled={!currentSession.exercises.length || isSaving}
+            size="lg"
+            className="w-full bg-primary text-primary-foreground hover:bg-primary/90 text-lg h-12"
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                Menyimpan...
+              </>
+            ) : (
+              "Complete Workout ✓"
+            )}
+          </Button>
+        </div>
       )}
 
       {currentSession && (

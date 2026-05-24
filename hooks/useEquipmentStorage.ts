@@ -8,6 +8,7 @@ export interface ApiEquipment {
   name: string;
   muscleGroup: string;
   imageUrl: string | null;
+  notes: string | null;
   createdAt: string;
   userId: string;
 }
@@ -37,7 +38,7 @@ export function useEquipmentStorage() {
 
   // ─── Add equipment ─────────────────────────────────────────────────────────
   const addEquipment = useCallback(
-    async (data: { name: string; muscleGroup: string; imageUrl?: string | null }) => {
+    async (data: { name: string; muscleGroup: string; imageUrl?: string | null; notes?: string | null }) => {
       try {
         const res = await fetch("/api/equipment", {
           method: "POST",
