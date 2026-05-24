@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -11,9 +11,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Card } from "@/components/ui/card";
-import { X, Camera, Trash2 } from "lucide-react";
+import { X, Camera, Trash2, Loader2 } from "lucide-react";
 import { useEquipmentStorage } from "@/hooks/useEquipmentStorage";
-import { Equipment, MuscleGroup } from "@/types/workout";
+import { MuscleGroup } from "@/types/workout";
 
 const MUSCLE_GROUPS: MuscleGroup[] = [
   "Chest",
@@ -32,56 +32,37 @@ interface EquipmentModalProps {
 }
 
 export function EquipmentModal({ open, onOpenChange }: EquipmentModalProps) {
-  const { equipment, addEquipment, deleteEquipment, updateEquipment } =
-    useEquipmentStorage();
+  const { equipment, addEquipment, deleteEquipment } = useEquipmentStorage();
   const [tab, setTab] = useState<"create" | "manage">("create");
 
   // Form state
   const [name, setName] = useState("");
   const [muscleGroup, setMuscleGroup] = useState<MuscleGroup>("Chest");
-  const [photoBase64, setPhotoBase64] = useState<string | undefined>();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const canSubmit = name.trim().length > 0 && !isSubmitting;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const result = event.target?.result as string;
-      setPhotoBase64(result);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleAddEquipment = () => {
+  const handleAddEquipment = async () => {
     if (!name.trim()) return;
+    setIsSubmitting(true);
 
-    const newEquipment: Equipment = {
-      id: `equipment_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
-      name: name.trim(),
-      muscleGroup,
-      photoBase64,
-      createdAt: Date.now(),
-    };
+    const result = await addEquipment({ name: name.trim(), muscleGroup });
 
-    addEquipment(newEquipment);
+    if (result) {
+      // Reset form on success
+      setName("");
+      setMuscleGroup("Chest");
+    }
 
-    // Reset form
-    setName("");
-    setMuscleGroup("Chest");
-    setPhotoBase64(undefined);
+    setIsSubmitting(false);
   };
 
-  const handleDeleteEquipment = (id: string) => {
-    deleteEquipment(id);
+  const handleDeleteEquipment = async (id: string) => {
+    setDeletingId(id);
+    await deleteEquipment(id);
+    setDeletingId(null);
   };
-
-  const handleUpdateEquipment = (id: string, eq: Equipment) => {
-    updateEquipment(id, eq);
-  };
-
-  const canSubmit = name.trim().length > 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -131,6 +112,7 @@ export function EquipmentModal({ open, onOpenChange }: EquipmentModalProps) {
                 placeholder="e.g., Barbell Bench Press, Dumbbell..."
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && canSubmit && handleAddEquipment()}
                 className="bg-muted border-border"
               />
             </div>
@@ -153,58 +135,20 @@ export function EquipmentModal({ open, onOpenChange }: EquipmentModalProps) {
               </select>
             </div>
 
-            {/* Photo Upload */}
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-foreground">
-                Photo (Optional)
-              </label>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handlePhotoUpload}
-                capture="environment"
-                className="hidden"
-              />
-              <div className="flex gap-2">
-                <Button
-                  onClick={() => fileInputRef.current?.click()}
-                  variant="outline"
-                  className="flex-1 border-border hover:bg-muted"
-                >
-                  <Camera className="w-4 h-4 mr-2" />
-                  Upload Photo
-                </Button>
-                {photoBase64 && (
-                  <Button
-                    onClick={() => setPhotoBase64(undefined)}
-                    variant="outline"
-                    className="border-border hover:bg-muted"
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                )}
-              </div>
-
-              {/* Photo Preview */}
-              {photoBase64 && (
-                <div className="p-2 bg-muted rounded-lg">
-                  <img
-                    src={photoBase64}
-                    alt="Equipment preview"
-                    className="w-full max-h-48 object-cover rounded"
-                  />
-                </div>
-              )}
-            </div>
-
             {/* Submit */}
             <Button
               onClick={handleAddEquipment}
               disabled={!canSubmit}
               className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
             >
-              Add Equipment
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Menyimpan...
+                </>
+              ) : (
+                "Add Equipment"
+              )}
             </Button>
           </div>
         )}
@@ -233,14 +177,19 @@ export function EquipmentModal({ open, onOpenChange }: EquipmentModalProps) {
                     </div>
                     <button
                       onClick={() => handleDeleteEquipment(eq.id)}
-                      className="p-2 hover:bg-red-500/20 rounded transition-colors"
+                      disabled={deletingId === eq.id}
+                      className="p-2 hover:bg-red-500/20 rounded transition-colors disabled:opacity-50"
                     >
-                      <Trash2 className="w-4 h-4 text-destructive" />
+                      {deletingId === eq.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-destructive" />
+                      ) : (
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      )}
                     </button>
                   </div>
-                  {eq.photoBase64 && (
+                  {eq.imageUrl && (
                     <img
-                      src={eq.photoBase64}
+                      src={eq.imageUrl}
                       alt={eq.name}
                       className="w-full max-h-32 object-cover rounded"
                     />

@@ -1,74 +1,151 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useCallback } from 'react';
-import { WorkoutSession } from '@/types/workout';
+import { useState, useEffect, useCallback } from "react";
+import { toast } from "sonner";
 
-const WORKOUTS_KEY = 'gym_workouts';
+// ─── Types mirroring the DB + API shape ────────────────────────────────────────
+
+export interface ApiWorkoutSet {
+  id: string;
+  setNumber: number;
+  weight: number;
+  reps: number;
+  equipmentId: string;
+  sessionId: string;
+  createdAt: string;
+  equipment: {
+    id: string;
+    name: string;
+    muscleGroup: string;
+  };
+}
+
+export interface ApiWorkoutSession {
+  id: string;
+  date: string;       // ISO string from DB
+  notes: string | null;
+  createdAt: string;
+  userId: string;
+  workoutSets: ApiWorkoutSet[];
+}
+
+// ─── Input type for saving a new workout ──────────────────────────────────────
+
+export interface SaveWorkoutInput {
+  date: string; // YYYY-MM-DD
+  notes?: string | null;
+  exercises: {
+    equipmentId: string;
+    sets: { setNumber: number; weight: number; reps: number }[];
+  }[];
+}
 
 export function useWorkoutStorage() {
-  const [workouts, setWorkouts] = useState<WorkoutSession[]>([]);
+  const [workouts, setWorkouts] = useState<ApiWorkoutSession[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Load from localStorage on mount
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
+  // ─── Fetch all workouts ──────────────────────────────────────────────────────
+  const fetchWorkouts = useCallback(async (date?: string) => {
     try {
-      const stored = localStorage.getItem(WORKOUTS_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        setWorkouts(Array.isArray(parsed) ? parsed : []);
-      } else {
-        setWorkouts([]);
+      const url = date ? `/api/workouts?date=${date}` : "/api/workouts";
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Gagal memuat workout");
+      const json = await res.json();
+      if (!date) {
+        setWorkouts(json.data ?? []);
       }
-    } catch (error) {
-      console.error('Failed to load workouts from localStorage:', error);
-      setWorkouts([]);
+      return json.data as ApiWorkoutSession[];
+    } catch (err) {
+      console.error("[useWorkoutStorage] fetch error:", err);
+      toast.error("Gagal memuat riwayat workout.");
+      return [];
+    } finally {
+      setIsLoaded(true);
     }
-    setIsLoaded(true);
   }, []);
 
-  const saveWorkouts = useCallback((newWorkouts: WorkoutSession[]) => {
+  useEffect(() => {
+    fetchWorkouts();
+  }, [fetchWorkouts]);
+
+  // ─── Save a workout session ────────────────────────────────────────────────
+  const addWorkout = useCallback(async (input: SaveWorkoutInput) => {
     try {
-      localStorage.setItem(WORKOUTS_KEY, JSON.stringify(newWorkouts));
-      setWorkouts(newWorkouts);
-    } catch (error) {
-      console.error('Failed to save workouts to localStorage:', error);
+      const res = await fetch("/api/workouts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error ?? "Gagal menyimpan workout.");
+        return null;
+      }
+      const saved = json.data as ApiWorkoutSession;
+      setWorkouts((prev) => [saved, ...prev]);
+      toast.success(json.message ?? "Workout berhasil disimpan! 💪");
+      return saved;
+    } catch (err) {
+      console.error("[useWorkoutStorage] addWorkout error:", err);
+      toast.error("Terjadi kesalahan jaringan.");
+      return null;
     }
   }, []);
 
-  const addWorkout = useCallback((workout: WorkoutSession) => {
-    setWorkouts((prev) => {
-      const updated = [...prev, workout];
-      saveWorkouts(updated);
-      return updated;
-    });
-  }, [saveWorkouts]);
-
-  const updateWorkout = useCallback((id: string, workout: WorkoutSession) => {
-    setWorkouts((prev) => {
-      const updated = prev.map((w) => (w.id === id ? workout : w));
-      saveWorkouts(updated);
-      return updated;
-    });
-  }, [saveWorkouts]);
-
-  const deleteWorkout = useCallback((id: string) => {
-    setWorkouts((prev) => {
-      const updated = prev.filter((w) => w.id !== id);
-      saveWorkouts(updated);
-      return updated;
-    });
-  }, [saveWorkouts]);
-
-  const getWorkoutsByDate = useCallback((date: string) => {
-    return workouts.filter((w) => w.date === date);
-  }, [workouts]);
-
-  const clearAll = useCallback(() => {
-    localStorage.removeItem(WORKOUTS_KEY);
-    setWorkouts([]);
+  // ─── Delete a workout session ──────────────────────────────────────────────
+  const deleteWorkout = useCallback(async (id: string) => {
+    try {
+      const res = await fetch(`/api/workouts/${id}`, { method: "DELETE" });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error ?? "Gagal menghapus workout.");
+        return false;
+      }
+      setWorkouts((prev) => prev.filter((w) => w.id !== id));
+      toast.success(json.message ?? "Workout berhasil dihapus.");
+      return true;
+    } catch (err) {
+      console.error("[useWorkoutStorage] deleteWorkout error:", err);
+      toast.error("Terjadi kesalahan jaringan.");
+      return false;
+    }
   }, []);
+
+  // ─── Update a workout session ──────────────────────────────────────────────
+  const updateWorkout = useCallback(
+    async (id: string, data: { date?: string; notes?: string | null }) => {
+      try {
+        const res = await fetch(`/api/workouts/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+        const json = await res.json();
+        if (!res.ok) {
+          toast.error(json.error ?? "Gagal memperbarui workout.");
+          return null;
+        }
+        const updated = json.data as ApiWorkoutSession;
+        setWorkouts((prev) => prev.map((w) => (w.id === id ? updated : w)));
+        return updated;
+      } catch (err) {
+        console.error("[useWorkoutStorage] updateWorkout error:", err);
+        toast.error("Terjadi kesalahan jaringan.");
+        return null;
+      }
+    },
+    [],
+  );
+
+  // ─── Get workouts for a specific date (YYYY-MM-DD) ────────────────────────
+  const getWorkoutsByDate = useCallback(
+    (date: string) => {
+      // Date from DB is an ISO string like "2026-05-24T00:00:00.000Z"
+      // We match just the YYYY-MM-DD part
+      return workouts.filter((w) => w.date.startsWith(date));
+    },
+    [workouts],
+  );
 
   return {
     workouts,
@@ -77,7 +154,6 @@ export function useWorkoutStorage() {
     updateWorkout,
     deleteWorkout,
     getWorkoutsByDate,
-    clearAll,
-    saveWorkouts,
+    refresh: fetchWorkouts,
   };
 }

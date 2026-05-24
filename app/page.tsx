@@ -4,21 +4,17 @@ import { useState, useEffect } from 'react';
 import { Dashboard } from '@/components/workout/dashboard';
 import { HistoryCalendar } from '@/components/workout/history-calendar';
 import { EquipmentModal } from '@/components/workout/equipment-modal';
-import { useWorkoutStorage } from '@/hooks/useWorkoutStorage';
-import { useEquipmentStorage } from '@/hooks/useEquipmentStorage';
 import { Button } from '@/components/ui/button';
-import { Plus, Calendar, Dumbbell, Moon, Sun, RotateCcw, LogOut } from 'lucide-react';
+import { Plus, Calendar, Dumbbell, Moon, Sun, LogOut } from 'lucide-react';
 import { logoutAction } from '@/lib/actions/auth';
 import { toast } from 'sonner';
 
-type Tab = 'today' | 'history' | 'equipment';
+type Tab = 'today' | 'history';
 
 export default function Home() {
   const [tab, setTab] = useState<Tab>('today');
   const [equipmentModalOpen, setEquipmentModalOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true);
-  const { clearAll: clearWorkouts } = useWorkoutStorage();
-  const { clearAll: clearEquipment } = useEquipmentStorage();
 
   // Handle theme toggle
   useEffect(() => {
@@ -28,14 +24,6 @@ export default function Home() {
       document.documentElement.classList.remove('dark');
     }
   }, [isDarkMode]);
-
-  const handleResetData = () => {
-    if (confirm('Are you sure you want to reset all data? This cannot be undone.')) {
-      clearWorkouts();
-      clearEquipment();
-      setTab('today');
-    }
-  };
 
   const handleLogout = async () => {
     try {
@@ -123,15 +111,6 @@ export default function Home() {
             <Plus className="w-4 h-4" />
             <span className="hidden sm:inline">Equipment</span>
           </Button>
-
-          {/* Reset Button */}
-          <button
-            onClick={handleResetData}
-            className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground"
-            title="Reset all data"
-          >
-            <RotateCcw className="w-4 h-4" />
-          </button>
         </div>
       </nav>
 

@@ -4,11 +4,11 @@ import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Search, Plus, X, ChevronDown, ChevronUp } from "lucide-react";
-import { useEquipmentStorage } from "@/hooks/useEquipmentStorage";
+import { Search, Plus, X, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { useEquipmentStorage, ApiEquipment } from "@/hooks/useEquipmentStorage";
 import { useSessionManager } from "@/hooks/useSessionManager";
 import { useWorkoutStorage } from "@/hooks/useWorkoutStorage";
-import { Equipment, Exercise, WorkoutSession } from "@/types/workout";
+import { Exercise } from "@/types/workout";
 
 interface DashboardProps {
   onEquipmentModalOpen: () => void;
@@ -28,15 +28,12 @@ export function Dashboard({ onEquipmentModalOpen }: DashboardProps) {
   const { addWorkout, getWorkoutsByDate } = useWorkoutStorage();
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(
-    null,
-  );
+  const [selectedEquipment, setSelectedEquipment] = useState<ApiEquipment | null>(null);
   const [weight, setWeight] = useState(20);
   const [reps, setReps] = useState(10);
   const [showSearch, setShowSearch] = useState(false);
-  const [expandedExercises, setExpandedExercises] = useState<Set<number>>(
-    new Set(),
-  );
+  const [expandedExercises, setExpandedExercises] = useState<Set<number>>(new Set());
+  const [isSaving, setIsSaving] = useState(false);
 
   const today = new Date().toISOString().split("T")[0];
   const todaysWorkouts = getWorkoutsByDate(today);
@@ -50,7 +47,7 @@ export function Dashboard({ onEquipmentModalOpen }: DashboardProps) {
     );
   }, [equipment, searchQuery]);
 
-  const handleSelectEquipment = (eq: Equipment) => {
+  const handleSelectEquipment = (eq: ApiEquipment) => {
     setSelectedEquipment(eq);
     setSearchQuery("");
     setShowSearch(false);
@@ -78,29 +75,42 @@ export function Dashboard({ onEquipmentModalOpen }: DashboardProps) {
     setReps(10);
   };
 
-  const handleCompleteWorkout = () => {
-    if (!currentSession) return;
+  const handleCompleteWorkout = async () => {
+    if (!currentSession || currentSession.exercises.length === 0) return;
 
+    setIsSaving(true);
     const session = endSession();
-    if (session && session.exercises.length > 0) {
-      const workoutSession: WorkoutSession = {
-        id: `workout_${Date.now()}`,
-        date: today,
-        exercises: session.exercises,
-        completedAt: Date.now(),
-      };
-      addWorkout(workoutSession);
+
+    if (!session || session.exercises.length === 0) {
+      setIsSaving(false);
+      return;
     }
+
+    // Map local session state to API input format
+    const exercisesPayload = session.exercises.map((exercise) => ({
+      equipmentId: exercise.equipmentId,
+      sets: exercise.sets.map((set, index) => ({
+        setNumber: index + 1,
+        weight: set.weight,
+        reps: set.reps,
+      })),
+    }));
+
+    await addWorkout({
+      date: today,
+      exercises: exercisesPayload,
+    });
+
+    setIsSaving(false);
   };
 
   const getPreviousSession = (equipmentId: string) => {
     for (let i = todaysWorkouts.length - 1; i >= 0; i--) {
-      const exercise = todaysWorkouts[i].exercises.find(
-        (e) => e.equipmentId === equipmentId,
+      const sets = todaysWorkouts[i].workoutSets.filter(
+        (s) => s.equipmentId === equipmentId,
       );
-      if (exercise) {
-        const lastSet = exercise.sets[exercise.sets.length - 1];
-        return lastSet;
+      if (sets.length > 0) {
+        return sets[sets.length - 1];
       }
     }
     return null;
@@ -144,11 +154,18 @@ export function Dashboard({ onEquipmentModalOpen }: DashboardProps) {
       ) : (
         <Button
           onClick={handleCompleteWorkout}
-          disabled={!currentSession.exercises.length}
+          disabled={!currentSession.exercises.length || isSaving}
           size="lg"
           className="w-full bg-primary text-primary-foreground hover:bg-primary/90 text-lg h-12"
         >
-          Complete Workout
+          {isSaving ? (
+            <>
+              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+              Menyimpan...
+            </>
+          ) : (
+            "Complete Workout"
+          )}
         </Button>
       )}
 
