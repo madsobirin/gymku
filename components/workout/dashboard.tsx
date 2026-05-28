@@ -22,7 +22,14 @@ import {
   CalendarIcon,
   ChevronLeft,
   ChevronRight,
+  Camera,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useEquipmentStorage, ApiEquipment } from "@/hooks/useEquipmentStorage";
 import { useSessionManager } from "@/hooks/useSessionManager";
 import { useWorkoutStorage, ApiWorkoutSet } from "@/hooks/useWorkoutStorage";
@@ -58,6 +65,11 @@ export function Dashboard({ onEquipmentModalOpen }: DashboardProps) {
     "idle" | "uploading" | "done" | "error"
   >("idle");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Camera state & refs
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
   const [showSearch, setShowSearch] = useState(false);
   const [expandedExercises, setExpandedExercises] = useState<Set<number>>(
@@ -119,10 +131,7 @@ export function Dashboard({ onEquipmentModalOpen }: DashboardProps) {
     setShowSearch(false);
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const uploadFile = async (file: File) => {
     const objectUrl = URL.createObjectURL(file);
     setSetImagePreview(objectUrl);
     setSetImageUrl(null);
@@ -156,6 +165,75 @@ export function Dashboard({ onEquipmentModalOpen }: DashboardProps) {
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await uploadFile(file);
+  };
+
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+        audio: false,
+      });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+      }
+      streamRef.current = stream;
+    } catch (err) {
+      console.error("Gagal mengakses kamera:", err);
+      toast.error("Gagal mengakses kamera. Pastikan izin kamera telah diberikan.");
+      setIsCameraOpen(false);
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current) {
+      const video = videoRef.current;
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(
+          async (blob) => {
+            if (blob) {
+              const file = new File([blob], `camera_${Date.now()}.jpg`, {
+                type: "image/jpeg",
+              });
+              await uploadFile(file);
+            }
+          },
+          "image/jpeg",
+          0.85
+        );
+      }
+      stopCamera();
+      setIsCameraOpen(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isCameraOpen) {
+      startCamera();
+    } else {
+      stopCamera();
+    }
+    return () => {
+      stopCamera();
+    };
+  }, [isCameraOpen]);
 
   const handleRemoveImage = () => {
     setSetImageUrl(null);
@@ -489,15 +567,63 @@ export function Dashboard({ onEquipmentModalOpen }: DashboardProps) {
                     </div>
                   </div>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="w-full border-2 border-dashed border-border hover:border-primary rounded-xl p-4 flex flex-col items-center gap-2 text-muted-foreground hover:text-foreground transition-all group"
-                  >
-                    <Upload className="w-5 h-5 group-hover:text-primary transition-colors" />
-                    <span className="text-xs font-medium">Upload Foto</span>
-                  </button>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="border-2 border-dashed border-border hover:border-primary rounded-xl p-3 flex flex-col items-center justify-center gap-1.5 text-muted-foreground hover:text-foreground transition-all group bg-card/50 cursor-pointer"
+                    >
+                      <Upload className="w-5 h-5 group-hover:text-primary transition-colors" />
+                      <span className="text-xs font-semibold">Pilih File</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsCameraOpen(true)}
+                      className="border-2 border-dashed border-border hover:border-primary rounded-xl p-3 flex flex-col items-center justify-center gap-1.5 text-muted-foreground hover:text-foreground transition-all group bg-card/50 cursor-pointer"
+                    >
+                      <Camera className="w-5 h-5 group-hover:text-primary transition-colors" />
+                      <span className="text-xs font-semibold">Kamera</span>
+                    </button>
+                  </div>
                 )}
+
+                <Dialog open={isCameraOpen} onOpenChange={setIsCameraOpen}>
+                  <DialogContent className="max-w-md bg-card border-border p-4 rounded-xl flex flex-col gap-4">
+                    <DialogHeader>
+                      <DialogTitle className="text-foreground flex items-center gap-2">
+                        <Camera className="w-5 h-5 text-primary" />
+                        Ambil Foto Set
+                      </DialogTitle>
+                    </DialogHeader>
+                    <div className="relative aspect-video rounded-lg overflow-hidden bg-black border border-border flex items-center justify-center">
+                      <video
+                        ref={videoRef}
+                        autoPlay
+                        playsInline
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="flex gap-2 justify-end">
+                      <Button
+                        variant="outline"
+                        type="button"
+                        onClick={() => setIsCameraOpen(false)}
+                        className="border-border hover:bg-muted"
+                      >
+                        Batal
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={capturePhoto}
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground flex items-center gap-1"
+                      >
+                        <Camera className="w-4 h-4" />
+                        Ambil Foto
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
 
                 {uploadState === "error" && (
                   <p className="text-xs text-destructive flex items-center gap-1 mt-1">
