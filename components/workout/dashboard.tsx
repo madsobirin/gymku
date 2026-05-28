@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,6 +69,34 @@ export function Dashboard({ onEquipmentModalOpen }: DashboardProps) {
   const today = new Date().toISOString().split("T")[0];
   const [selectedDate, setSelectedDate] = useState<string>(today);
   const todaysWorkouts = getWorkoutsByDate(selectedDate);
+
+  // Daily log search state with debounce
+  const [logSearchQuery, setLogSearchQuery] = useState("");
+  const [debouncedLogQuery, setDebouncedLogQuery] = useState("");
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedLogQuery(logSearchQuery);
+    }, 1500);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [logSearchQuery]);
+
+  const filteredWorkouts = useMemo(() => {
+    if (!debouncedLogQuery.trim()) return todaysWorkouts;
+    const query = debouncedLogQuery.toLowerCase();
+    return todaysWorkouts.filter((workout) => {
+      const matchesNotes = workout.notes?.toLowerCase().includes(query);
+      const matchesEquipment = workout.workoutSets.some(
+        (set) =>
+          set.equipment.name.toLowerCase().includes(query) ||
+          set.equipment.muscleGroup.toLowerCase().includes(query)
+      );
+      return matchesNotes || matchesEquipment;
+    });
+  }, [todaysWorkouts, debouncedLogQuery]);
 
   // Edit Set State
   const [editingSetId, setEditingSetId] = useState<string | null>(null);
@@ -643,13 +671,42 @@ export function Dashboard({ onEquipmentModalOpen }: DashboardProps) {
           </button>
         </div>
 
-        {todaysWorkouts.length === 0 ? (
+        {/* Search Input for Daily Log */}
+        {(todaysWorkouts.length > 0 || logSearchQuery) && (
+          <div className="space-y-1">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+              <Input
+                placeholder="Cari aktivitas (cth: Bench Press, Dada) atau catatan..."
+                value={logSearchQuery}
+                onChange={(e) => setLogSearchQuery(e.target.value)}
+                className="pl-10 bg-card border-border"
+              />
+              {logSearchQuery && (
+                <button
+                  onClick={() => setLogSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 hover:bg-muted rounded text-muted-foreground transition-colors"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+            {logSearchQuery !== debouncedLogQuery && (
+              <p className="text-xs text-muted-foreground mt-1 ml-1 flex items-center gap-1">
+                <Loader2 className="w-3 h-3 animate-spin text-primary" />
+                Sedang mengetik...
+              </p>
+            )}
+          </div>
+        )}
+
+        {filteredWorkouts.length === 0 ? (
           <Card className="p-6 text-center text-muted-foreground bg-card border-border">
-            Belum ada log latihan untuk tanggal ini.
+            {logSearchQuery ? "Aktivitas tidak ditemukan." : "Belum ada log latihan untuk tanggal ini."}
           </Card>
         ) : (
           <div className="space-y-4">
-            {todaysWorkouts.map((workout) => (
+            {filteredWorkouts.map((workout) => (
               <Card key={workout.id} className="p-4 bg-card border-border space-y-4">
                 {workout.notes && (
                   <div className="text-sm p-3 bg-muted/30 rounded-md border border-border">

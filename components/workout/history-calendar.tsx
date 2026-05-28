@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Card } from "@/components/ui/card";
-import { ChevronLeft, ChevronRight, Calendar, Loader2, ImageIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, Loader2, ImageIcon, Search, X } from "lucide-react";
 import { useWorkoutStorage, ApiWorkoutSession } from "@/hooks/useWorkoutStorage";
 import { useEquipmentStorage } from "@/hooks/useEquipmentStorage";
+import { Input } from "@/components/ui/input";
 
 export function HistoryCalendar() {
   const { workouts, isLoaded } = useWorkoutStorage();
@@ -37,6 +38,34 @@ export function HistoryCalendar() {
   const selectedWorkouts: ApiWorkoutSession[] = workouts.filter((w) =>
     w.date.startsWith(selectedDate),
   );
+
+  // History search state with debounce
+  const [historySearchQuery, setHistorySearchQuery] = useState("");
+  const [debouncedHistoryQuery, setDebouncedHistoryQuery] = useState("");
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedHistoryQuery(historySearchQuery);
+    }, 1500);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [historySearchQuery]);
+
+  const filteredHistoryWorkouts = useMemo(() => {
+    if (!debouncedHistoryQuery.trim()) return selectedWorkouts;
+    const query = debouncedHistoryQuery.toLowerCase();
+    return workouts.filter((workout) => {
+      const matchesNotes = workout.notes?.toLowerCase().includes(query);
+      const matchesEquipment = workout.workoutSets.some(
+        (set) =>
+          set.equipment.name.toLowerCase().includes(query) ||
+          set.equipment.muscleGroup.toLowerCase().includes(query)
+      );
+      return matchesNotes || matchesEquipment;
+    });
+  }, [workouts, selectedWorkouts, debouncedHistoryQuery]);
 
   const getEquipmentName = (id: string) =>
     equipment.find((e) => e.id === id)?.name || "Unknown";
@@ -81,6 +110,33 @@ export function HistoryCalendar() {
       <div className="space-y-2">
         <h1 className="text-3xl font-bold text-foreground">Workout History</h1>
         <p className="text-muted-foreground">Track your progress over time</p>
+      </div>
+
+      {/* Search Input for History */}
+      <div className="space-y-1">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder="Cari aktivitas (cth: Squat, Dada) atau catatan..."
+            value={historySearchQuery}
+            onChange={(e) => setHistorySearchQuery(e.target.value)}
+            className="pl-10 bg-card border-border"
+          />
+          {historySearchQuery && (
+            <button
+              onClick={() => setHistorySearchQuery("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 hover:bg-muted rounded text-muted-foreground transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+        {historySearchQuery !== debouncedHistoryQuery && (
+          <p className="text-xs text-muted-foreground mt-1 ml-1 flex items-center gap-1">
+            <Loader2 className="w-3 h-3 animate-spin text-primary" />
+            Sedang mengetik...
+          </p>
+        )}
       </div>
 
       {/* Calendar */}
@@ -155,13 +211,22 @@ export function HistoryCalendar() {
       {/* Workout Summary */}
       <div className="space-y-3">
         <div className="flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-muted-foreground" />
+          {debouncedHistoryQuery ? (
+            <Search className="w-4 h-4 text-primary" />
+          ) : (
+            <Calendar className="w-4 h-4 text-muted-foreground" />
+          )}
           <h3 className="text-sm font-semibold text-foreground">
-            {new Date(selectedDate + "T12:00:00").toLocaleDateString("en-US", {
-              weekday: "long",
-              month: "long",
-              day: "numeric",
-            })}
+            {debouncedHistoryQuery ? (
+              `Hasil Pencarian: "${debouncedHistoryQuery}"`
+            ) : (
+              new Date(selectedDate + "T12:00:00").toLocaleDateString("id-ID", {
+                weekday: "long",
+                day: "numeric",
+                month: "long",
+                year: "numeric"
+              })
+            )}
           </h3>
         </div>
 
@@ -169,14 +234,16 @@ export function HistoryCalendar() {
           <div className="flex justify-center py-6">
             <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
           </div>
-        ) : selectedWorkouts.length === 0 ? (
+        ) : filteredHistoryWorkouts.length === 0 ? (
           <Card className="p-8 text-center bg-card border-border">
             <p className="text-muted-foreground">
-              No workouts recorded on this date
+              {debouncedHistoryQuery
+                ? "Aktivitas tidak ditemukan."
+                : "Belum ada log latihan untuk tanggal ini."}
             </p>
           </Card>
         ) : (
-          selectedWorkouts.map((workout) => {
+          filteredHistoryWorkouts.map((workout) => {
             const exerciseGroups = groupSetsByEquipment(workout);
             const totalSets = workout.workoutSets.length;
 
@@ -185,11 +252,24 @@ export function HistoryCalendar() {
                 key={workout.id}
                 className="p-4 space-y-3 bg-card border-border"
               >
-                <div className="text-xs text-muted-foreground">
-                  {new Date(workout.createdAt).toLocaleTimeString("en-US", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
+                <div className="text-xs text-muted-foreground flex justify-between items-center">
+                  <span>
+                    {debouncedHistoryQuery && (
+                      <span className="font-semibold text-primary mr-2">
+                        {new Date(workout.date).toLocaleDateString("id-ID", {
+                          weekday: "short",
+                          day: "numeric",
+                          month: "short",
+                        })}
+                      </span>
+                    )}
+                  </span>
+                  <span>
+                    {new Date(workout.createdAt).toLocaleTimeString("id-ID", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
                 </div>
 
                 <div className="space-y-2">
