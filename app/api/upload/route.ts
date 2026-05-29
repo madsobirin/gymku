@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
 
     // Validate file size and compress if it exceeds 5MB
     const MAX_SIZE_BYTES = 5 * 1024 * 1024;
-    let buffer = Buffer.from(await file.arrayBuffer());
+    let buffer: Buffer = Buffer.from(await file.arrayBuffer());
 
     if (file.size > MAX_SIZE_BYTES) {
       try {
